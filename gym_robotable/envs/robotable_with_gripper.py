@@ -131,6 +131,7 @@ class Robotable(object):
     self._on_rack = on_rack
 
     self._end_effector_index = 7
+    self._num_ones = 0
 
     self.viewMatrix = self._pybullet_client.computeViewMatrixFromYawPitchRoll(cameraTargetPosition = [0,0,0], distance = 0.3, yaw = 90, pitch = -90, roll = 0, upAxisIndex = 2) 
     self.projectionMatrix = self._pybullet_client.computeProjectionMatrixFOV(fov = 120,aspect = 1,nearVal = 0.01,farVal = 10)
@@ -279,6 +280,7 @@ class Robotable(object):
     self._motor_enabled_list = [True] * self.num_motors
     self._step_counter = 0
 
+    self._num_ones = 0
     # Perform reset motion within reset_duration if in position control mode.
     # Nothing is performed if in torque control mode for now.
     # TODO(jietan): Add reset motion when the torque control is fully supported.
@@ -948,10 +950,13 @@ class Robotable(object):
     seg = Image.fromarray(mask.astype('uint8'))
     
 
-
     #seg = Image.fromarray(np.interp(mask, (-1, mask.max()), (0, 255)).astype('uint8'))
-    pix = np.unique(np.array(seg))
-    print(pix) 
+    #unique, counts = np.unique(np.array(seg), return_counts=True)
+    #pixdict = dict(zip(unique, counts))
+    #print(pixdict) 
+
+    self._num_ones = (np.array(seg) == 1).sum()
+    #print(num_ones)
     #if 1 in pix:  #egg detected
 #[  0  63 127 191 255] w interpolation.
 #
@@ -977,6 +982,9 @@ class Robotable(object):
         #seg.save("cnn/seg" + timestr + "-" + str(self._step_counter) + ".png")
 
 
+
+  def _getNumOnes(self):
+    return self._num_ones
 
   def _getSceneObservation(self):
     state = self._pybullet_client.getLinkState(self.quadruped, self._end_effector_index)

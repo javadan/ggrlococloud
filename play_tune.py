@@ -8,7 +8,8 @@ from ray.tune.registry import register_env
 import argparse
 from ray.rllib.utils.framework import try_import_tf
 
-#from gym import wrappers
+import gym
+from gym import wrappers
 
 import ray.rllib.agents.ars as ars
 
@@ -19,7 +20,7 @@ from gym_robotable.envs.robotable_gym_env import RobotableEnv
 from ray.tune.schedulers import PopulationBasedTraining
 
 
-ray.init()
+ray.init(dashboard_host="0.0.0.0")
 
 config = ars.DEFAULT_CONFIG.copy()
 
@@ -71,7 +72,9 @@ ray_results = '/home/daniel_brownell/' #f'{os.getenv("HOME")}/ray_results/'
 
 
 def env_creator(env_config):
-    return RobotableEnv()  # return an env instance
+    env = RobotableEnv()
+    env = gym.wrappers.Monitor(env, "./vid", video_callable=lambda episode_id: episode_id%10==0,force=True)
+    return env  # return an env instance
     #return wrappers.Monitor(RobotableEnv(), ray_results, force=True)
 
 register_env("RobotableEnv-v0", env_creator)
@@ -151,7 +154,8 @@ def restore(experiment_name):
             # print(log_dir)
 
             # Restore
-            exp_dir = glob.glob(ray_results + 'ARS_RobotableEnv-v0*')
+            exp_dir = glob.glob(ray_results + experiment_name + '/ARS_RobotableEnv-v0*')
+            print ("Searching for best checkpoint in ", exp_dir)
             best_score = 0
             for dir in exp_dir:
 

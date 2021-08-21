@@ -91,7 +91,7 @@ class RobotableEnv(gym.Env):
                urdf_version=None,
                distance_weight=10,
                energy_weight=1,#0.05
-               shake_weight=0.0,
+               shake_weight=6, #redefining this for egg pixels. make nb.
                drift_weight=6, #redefining this for Z axis.  make it nb.
                distance_limit=float("inf"),
                observation_noise_stdev=SENSOR_NOISE_STDDEV,
@@ -117,7 +117,7 @@ class RobotableEnv(gym.Env):
                forward_reward_cap=float("inf"),
                reflection=False,
                log_path=None):
-               #log_path="/media/chrx/0FEC49A4317DA4DA/walkinglogs"):
+               #log_path="./logs"):
     """Initialize the robotable gym environment.
 
     Args:
@@ -242,6 +242,8 @@ class RobotableEnv(gym.Env):
     self._reflection = reflection
     self._env_randomizers = convert_to_list(env_randomizer) if env_randomizer else []
     self._episode_proto = logging_pb2.RobotableEpisode()
+    self._simulation_counter = 0
+    
     with lock:
       global gui
       if self._is_render and gui < 1:
@@ -309,8 +311,8 @@ class RobotableEnv(gym.Env):
       #load random plane texture
 
       self._ground_id = self._pybullet_client.loadURDF("%s/plane.urdf" % self._urdf_root)
-      textureId = self.get_random_texture()
-      self._pybullet_client.changeVisualShape(self._ground_id, -1, textureUniqueId=textureId)
+      #textureId = self.get_random_texture()
+      #self._pybullet_client.changeVisualShape(self._ground_id, -1, textureUniqueId=textureId)
 
 
 
@@ -378,7 +380,11 @@ class RobotableEnv(gym.Env):
     self.end_effector_pos = self.robotable.GetTrueEndEffectorPosition()
     self.end_effector_orn = self.robotable.GetTrueEndEffectorOrientation()
 
-    
+    self._simulation_counter += 1
+
+    #gonna try handle this in Ray
+    #if self._simulation_counter % 10 == 0:
+    #  self.monitor.start('/home/daniel_brownell/progress_video', force=True)
 
     # Loop over all env randomizers.
     for env_randomizer in self._env_randomizers:
@@ -484,6 +490,7 @@ class RobotableEnv(gym.Env):
 
 
     if done:
+      #self.monitor.close()
       self.robotable.Terminate()
     return np.array(self._get_observation()), reward, done, {}
 
@@ -609,7 +616,12 @@ class RobotableEnv(gym.Env):
     rot_matrix = pybullet.getMatrixFromQuaternion(orientation)
     local_up_vec = rot_matrix[6:]
 
-    shake_reward = -abs(np.dot(np.asarray([1, 1, 0]), np.asarray(local_up_vec)))
+    #shake_reward = -abs(np.dot(np.asarray([1, 1, 0]), np.asarray(local_up_vec)))
+
+    #shake_reward is now egg pixels
+    egg_pixels = self.robotable._getNumOnes() / 65536
+    shake_reward = egg_pixels 
+
 
     energy_reward = -np.abs(
         np.dot(self.robotable.GetMotorTorques(),
@@ -619,6 +631,10 @@ class RobotableEnv(gym.Env):
     objectives = [forward_reward, energy_reward, drift_reward, shake_reward]
     weighted_objectives = [o * w for o, w in zip(objectives, self._objective_weights)]
     reward = sum(weighted_objectives)
+
+    #maximize numOnes pixles (egg pixels)
+
+
 
     #extra punish falling.
     if current_base_position[2] < -0.22:
